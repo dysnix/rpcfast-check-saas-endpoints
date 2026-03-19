@@ -30,12 +30,13 @@ app = FastAPI(title="RPCFast Endpoint Checker")
 
 class CheckRequest(BaseModel):
     token: str
-    client_id: str = "saas"
+    endpoint_type: str = "saas"
+    client_id: str | None = None
 
 
 @app.post("/api/check")
 async def run_checks(req: CheckRequest):
-    endpoints = resolve_endpoints(req.client_id)
+    endpoints = resolve_endpoints(req.endpoint_type, req.client_id)
 
     async def event_generator():
         checks = [
