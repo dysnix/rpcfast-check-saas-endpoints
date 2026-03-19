@@ -9,14 +9,22 @@ class EndpointSet:
     shredstream_grpc: str
 
 
-def resolve_endpoints(client_id: str) -> EndpointSet:
-    if client_id == "saas":
+def resolve_endpoints(endpoint_type: str, client_id: str | None = None) -> EndpointSet:
+    if endpoint_type == "saas":
+        return EndpointSet(
+            jsonrpc_http="https://solana-rpc.rpcfast.com",
+            jsonrpc_ws="wss://solana-rpc.rpcfast.com/ws",
+            yellowstone_grpc="solana-yellowstone-grpc.rpcfast.com:443",
+            shredstream_grpc="solana-shredstream-grpc.rpcfast.com:443",
+        )
+    if endpoint_type == "trial":
         return EndpointSet(
             jsonrpc_http="https://solana-rpc.rpcfast.net",
             jsonrpc_ws="wss://solana-rpc.rpcfast.net/ws",
             yellowstone_grpc="solana-yellowstone-grpc.rpcfast.net:443",
             shredstream_grpc="solana-shredstream-grpc.rpcfast.net:443",
         )
+    # dedicated — requires client_id
     return EndpointSet(
         jsonrpc_http=f"https://sol-rpc-{client_id}.rpcfast.net",
         jsonrpc_ws=f"wss://sol-rpc-{client_id}.rpcfast.net/ws",

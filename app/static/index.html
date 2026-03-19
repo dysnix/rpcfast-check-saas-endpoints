@@ -69,8 +69,9 @@
   <div class="form-group">
     <label>API Endpoint</label>
     <div class="radio-group">
-      <label><input type="radio" name="endpoint-type" value="saas" checked onchange="toggleClientId()"> SaaS (default)</label>
-      <label><input type="radio" name="endpoint-type" value="custom" onchange="toggleClientId()"> Custom Client ID</label>
+      <label><input type="radio" name="endpoint-type" value="saas" checked onchange="toggleClientId()"> SaaS</label>
+      <label><input type="radio" name="endpoint-type" value="dedicated" onchange="toggleClientId()"> Dedicated</label>
+      <label><input type="radio" name="endpoint-type" value="trial" onchange="toggleClientId()"> Trial Dedicated</label>
     </div>
     <input type="text" id="client-id-input" placeholder="e.g. userid" autocomplete="off">
   </div>
@@ -92,8 +93,8 @@ const CHECK_LABELS = {
 const cardEndpoints = {};
 
 function toggleClientId() {
-  const custom = document.querySelector('input[name="endpoint-type"][value="custom"]').checked;
-  document.getElementById('client-id-input').style.display = custom ? 'block' : 'none';
+  const dedicated = document.querySelector('input[name="endpoint-type"][value="dedicated"]').checked;
+  document.getElementById('client-id-input').style.display = dedicated ? 'block' : 'none';
 }
 
 function ageGrade(seconds) {
@@ -192,8 +193,8 @@ async function runChecks() {
   if (!token) { alert('Please enter an x-token'); return; }
 
   const endpointType = document.querySelector('input[name="endpoint-type"]:checked').value;
-  let clientId = 'saas';
-  if (endpointType === 'custom') {
+  let clientId = null;
+  if (endpointType === 'dedicated') {
     clientId = document.getElementById('client-id-input').value.trim();
     if (!clientId) { alert('Please enter a client ID'); return; }
   }
@@ -204,10 +205,12 @@ async function runChecks() {
   document.getElementById('results').innerHTML = '';
 
   try {
+    const body = { token, endpoint_type: endpointType };
+    if (clientId) body.client_id = clientId;
     const response = await fetch('/api/check', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, client_id: clientId }),
+      body: JSON.stringify(body),
     });
 
     const reader = response.body.getReader();
