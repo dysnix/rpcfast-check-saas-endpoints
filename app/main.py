@@ -1,13 +1,18 @@
 import asyncio
 import json
+import re
 
 import grpc
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
+
+# Only allow alphanumeric and hyphens in client_id to prevent SSRF
+CLIENT_ID_PATTERN = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
+VALID_ENDPOINT_TYPES = {"saas", "dedicated"}
 
 from app.checks.jsonrpc_http import check_jsonrpc_http
 from app.checks.jsonrpc_ws import check_jsonrpc_ws
@@ -38,6 +43,17 @@ class CheckRequest(BaseModel):
 
 @app.post("/api/check")
 async def run_checks(req: CheckRequest):
+    # Validate endpoint_type
+    if req.endpoint_type not in VALID_ENDPOINT_TYPES:
+        raise HTTPException(status_code=400, detail=f"Invalid endpoint_type: must be one of {VALID_ENDPOINT_TYPES}")
+
+    # Validate client_id to prevent SSRF via URL injection
+    if req.endpoint_type == "dedicated":
+        if not req.client_id:
+            raise HTTPException(status_code=400, detail="client_id is required for dedicated endpoints")
+        if not CLIENT_ID_PATTERN.match(req.client_id) or len(req.client_id) > 64:
+            raise HTTPException(status_code=400, detail="client_id must be lowercase alphanumeric with optional hyphens (max 64 chars)")
+
     endpoints = resolve_endpoints(req.endpoint_type, req.client_id)
 
     # Resolve per-service tokens:

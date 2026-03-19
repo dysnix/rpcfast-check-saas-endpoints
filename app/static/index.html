@@ -101,6 +101,12 @@ const CHECK_LABELS = {
 // Store endpoint info from status events so results can reference it
 const cardEndpoints = {};
 
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.appendChild(document.createTextNode(str));
+  return div.innerHTML;
+}
+
 function toggleEndpointFields() {
   const dedicated = document.querySelector('input[name="endpoint-type"][value="dedicated"]').checked;
   document.getElementById('client-id-input').style.display = dedicated ? 'block' : 'none';
@@ -135,10 +141,10 @@ function getCardGrade(data) {
 
 function formatDetails(data) {
   const rows = [];
-  if (data.endpoint) rows.push(['Endpoint', data.endpoint]);
+  if (data.timestamp) rows.push(['Checked at', escapeHtml(data.timestamp)]);
+  if (data.endpoint) rows.push(['Endpoint', escapeHtml(data.endpoint)]);
   if (data.slot != null) rows.push(['Slot', `<a href="https://solscan.io/block/${data.slot}" target="_blank" rel="noopener">${data.slot.toLocaleString()}</a>`]);
   if (data.block_height != null) rows.push(['Block Height', data.block_height.toLocaleString()]);
-  if (data.block_time != null) rows.push(['Block Time', new Date(data.block_time * 1000).toISOString()]);
   if (data.age_seconds != null) rows.push(['Block Age', `<span class="${ageClass(data.age_seconds)}">${data.age_seconds}s</span>`]);
   if (data.bytes_downloaded != null) rows.push(['Downloaded', `${(data.bytes_downloaded / 1024 / 1024).toFixed(2)} MB`]);
   if (data.grpc_messages != null) rows.push(['gRPC Messages', data.grpc_messages.toLocaleString()]);
@@ -152,8 +158,8 @@ function formatDetails(data) {
   if (data.blocks_received != null) rows.push(['Blocks Received', data.blocks_received]);
   if (data.latest_slot != null) rows.push(['Latest Slot', `<a href="https://solscan.io/block/${data.latest_slot}" target="_blank" rel="noopener">${data.latest_slot.toLocaleString()}</a>`]);
   if (data.elapsed_seconds != null) rows.push(['Elapsed', `${data.elapsed_seconds}s`]);
-  if (data.error) rows.push(['Error', `<span class="age-red">${data.error}</span>`]);
-  if (data.message) rows.push(['Message', data.message]);
+  if (data.error) rows.push(['Error', `<span class="age-red">${escapeHtml(data.error)}</span>`]);
+  if (data.message) rows.push(['Message', escapeHtml(data.message)]);
   if (!rows.length) return '';
   return '<table>' + rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('') + '</table>';
 }
@@ -193,7 +199,7 @@ function setCard(name, status, data) {
       <span class="check-name">${CHECK_LABELS[name] || name}</span>
       <span class="badge ${badgeClass}">${badgeContent}</span>
     </div>
-    ${data?.endpoint ? `<div class="check-endpoint">${data.endpoint}</div>` : ''}
+    ${data?.endpoint ? `<div class="check-endpoint">${escapeHtml(data.endpoint)}</div>` : ''}
     <div class="check-details">${data ? formatDetails(data) : ''}</div>
   `;
 }
@@ -209,6 +215,10 @@ async function runChecks() {
   if (endpointType === 'dedicated') {
     clientId = document.getElementById('client-id-input').value.trim();
     if (!clientId) { alert('Please enter a client ID'); return; }
+    clientId = clientId.toLowerCase();
+    if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(clientId) || clientId.length > 64) {
+      alert('Client ID must be lowercase alphanumeric with optional hyphens (max 64 chars)'); return;
+    }
   } else {
     yellowstoneToken = document.getElementById('yellowstone-token').value.trim() || null;
     shredstreamToken = document.getElementById('shredstream-token').value.trim() || null;
@@ -253,6 +263,7 @@ async function runChecks() {
             if (currentEvent === 'status') {
               setCard(data.check, 'running', data);
             } else if (currentEvent === 'result') {
+              data.timestamp = new Date().toISOString();
               setCard(data.check, data.status || 'ok', data);
             }
           } catch (e) { /* ignore parse errors */ }
@@ -262,7 +273,7 @@ async function runChecks() {
     }
   } catch (err) {
     const results = document.getElementById('results');
-    results.innerHTML += `<div class="check-card error"><div class="check-header"><span class="check-name">Connection Error</span><span class="badge error">Error</span></div><div class="check-details">${err.message}</div></div>`;
+    results.innerHTML += `<div class="check-card error"><div class="check-header"><span class="check-name">Connection Error</span><span class="badge error">Error</span></div><div class="check-details">${escapeHtml(err.message)}</div></div>`;
   } finally {
     btn.disabled = false;
     btn.textContent = 'Check Endpoints';
