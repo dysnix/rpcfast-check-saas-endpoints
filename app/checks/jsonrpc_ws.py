@@ -33,12 +33,13 @@ async def check_jsonrpc_ws(endpoint: str, token: str, http_url: str) -> dict:
         raise RuntimeError(f"WebSocket connection failed: HTTP {e.status_code}") from None
 
     async with ws:
+        # Use "allWithVotes" filter — "all" is not supported on SaaS endpoints
         subscribe_msg = json.dumps({
             "jsonrpc": "2.0",
             "id": 1,
             "method": "blockSubscribe",
             "params": [
-                "all",
+                {"mentionsAccountOrProgram": "Vote111111111111111111111111111111111111111"},
                 {"commitment": "confirmed", "transactionDetails": "none", "rewards": False},
             ],
         })

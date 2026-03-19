@@ -20,7 +20,7 @@ async def _get_block_time_via_http(http_url: str, token: str, slot: int) -> int:
         return data["result"]
 
 
-async def check_yellowstone(endpoint: str, token: str, http_url: str) -> dict:
+async def check_yellowstone(endpoint: str, token: str, http_url: str, http_token: str) -> dict:
     metadata = [("x-token", token)]
     channel = grpc.aio.secure_channel(
         endpoint,
@@ -39,7 +39,7 @@ async def check_yellowstone(endpoint: str, token: str, http_url: str) -> dict:
         slot = slot_resp.slot
         block_height = height_resp.block_height
 
-        block_time = await _get_block_time_via_http(http_url, token, slot)
+        block_time = await _get_block_time_via_http(http_url, http_token, slot)
         now = int(time.time())
         age_seconds = now - block_time
 

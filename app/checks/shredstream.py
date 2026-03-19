@@ -168,7 +168,7 @@ def decode_entries_summary(raw: bytes) -> dict:
     return {"entry_count": entry_count, "total_transactions": total_transactions}
 
 
-async def check_shredstream(endpoint: str, token: str, http_url: str) -> dict:
+async def check_shredstream(endpoint: str, token: str, http_url: str, http_token: str) -> dict:
     metadata = [("x-token", token)]
     channel = grpc.aio.secure_channel(
         endpoint,
@@ -218,7 +218,7 @@ async def check_shredstream(endpoint: str, token: str, http_url: str) -> dict:
         slot_diff = None
         if last_slot:
             try:
-                headers = {"x-token": token, "Content-Type": "application/json"}
+                headers = {"x-token": http_token, "Content-Type": "application/json"}
                 async with httpx.AsyncClient(timeout=10.0) as client:
                     # Get a confirmed slot and its block time as reference
                     resp = await client.post(

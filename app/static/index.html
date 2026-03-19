@@ -62,18 +62,27 @@
   <h1>RPCFast Solana Endpoint Checker</h1>
 
   <div class="form-group">
-    <label for="token">x-token (API key)</label>
+    <label for="token">x-token (HTTP RPC API key)</label>
     <input type="text" id="token" placeholder="Enter your x-token / API key" autocomplete="off">
   </div>
 
   <div class="form-group">
     <label>API Endpoint</label>
     <div class="radio-group">
-      <label><input type="radio" name="endpoint-type" value="saas" checked onchange="toggleClientId()"> SaaS</label>
-      <label><input type="radio" name="endpoint-type" value="dedicated" onchange="toggleClientId()"> Dedicated</label>
-      <label><input type="radio" name="endpoint-type" value="trial" onchange="toggleClientId()"> Trial Dedicated</label>
+      <label><input type="radio" name="endpoint-type" value="saas" checked onchange="toggleEndpointFields()"> SaaS</label>
+      <label><input type="radio" name="endpoint-type" value="dedicated" onchange="toggleEndpointFields()"> Dedicated</label>
     </div>
     <input type="text" id="client-id-input" placeholder="e.g. userid" autocomplete="off">
+    <div id="saas-tokens" style="margin-top: 0.5rem;">
+      <div class="form-group">
+        <label for="yellowstone-token">Yellowstone gRPC token (optional)</label>
+        <input type="text" id="yellowstone-token" placeholder="Leave empty to skip Yellowstone check" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label for="shredstream-token">Shredstream gRPC token (optional)</label>
+        <input type="text" id="shredstream-token" placeholder="Leave empty to skip Shredstream check" autocomplete="off">
+      </div>
+    </div>
   </div>
 
   <button id="check-btn" onclick="runChecks()">Check Endpoints</button>
@@ -92,9 +101,10 @@ const CHECK_LABELS = {
 // Store endpoint info from status events so results can reference it
 const cardEndpoints = {};
 
-function toggleClientId() {
+function toggleEndpointFields() {
   const dedicated = document.querySelector('input[name="endpoint-type"][value="dedicated"]').checked;
   document.getElementById('client-id-input').style.display = dedicated ? 'block' : 'none';
+  document.getElementById('saas-tokens').style.display = dedicated ? 'none' : 'block';
 }
 
 function ageGrade(seconds) {
@@ -189,14 +199,19 @@ function setCard(name, status, data) {
 }
 
 async function runChecks() {
-  const token = document.getElementById('token').value.trim();
-  if (!token) { alert('Please enter an x-token'); return; }
+  const httpToken = document.getElementById('token').value.trim();
+  if (!httpToken) { alert('Please enter an x-token'); return; }
 
   const endpointType = document.querySelector('input[name="endpoint-type"]:checked').value;
   let clientId = null;
+  let yellowstoneToken = null;
+  let shredstreamToken = null;
   if (endpointType === 'dedicated') {
     clientId = document.getElementById('client-id-input').value.trim();
     if (!clientId) { alert('Please enter a client ID'); return; }
+  } else {
+    yellowstoneToken = document.getElementById('yellowstone-token').value.trim() || null;
+    shredstreamToken = document.getElementById('shredstream-token').value.trim() || null;
   }
 
   const btn = document.getElementById('check-btn');
@@ -205,8 +220,10 @@ async function runChecks() {
   document.getElementById('results').innerHTML = '';
 
   try {
-    const body = { token, endpoint_type: endpointType };
+    const body = { http_token: httpToken, endpoint_type: endpointType };
     if (clientId) body.client_id = clientId;
+    if (yellowstoneToken) body.yellowstone_token = yellowstoneToken;
+    if (shredstreamToken) body.shredstream_token = shredstreamToken;
     const response = await fetch('/api/check', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

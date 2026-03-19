@@ -29,22 +29,37 @@ app = FastAPI(title="RPCFast Endpoint Checker")
 
 
 class CheckRequest(BaseModel):
-    token: str
+    http_token: str
     endpoint_type: str = "saas"
     client_id: str | None = None
+    yellowstone_token: str | None = None
+    shredstream_token: str | None = None
 
 
 @app.post("/api/check")
 async def run_checks(req: CheckRequest):
     endpoints = resolve_endpoints(req.endpoint_type, req.client_id)
 
+    # Resolve per-service tokens:
+    # Dedicated: single http_token for all services
+    # SaaS: http_token for HTTP+WS, separate optional tokens for gRPC
+    http_token = req.http_token
+    if req.endpoint_type == "dedicated":
+        ys_token = req.http_token
+        ss_token = req.http_token
+    else:
+        ys_token = req.yellowstone_token
+        ss_token = req.shredstream_token
+
     async def event_generator():
         checks = [
-            ("jsonrpc_http", check_jsonrpc_http, [endpoints.jsonrpc_http, req.token]),
-            ("yellowstone_grpc", check_yellowstone, [endpoints.yellowstone_grpc, req.token, endpoints.jsonrpc_http]),
-            ("shredstream_grpc", check_shredstream, [endpoints.shredstream_grpc, req.token, endpoints.jsonrpc_http]),
-            ("jsonrpc_ws", check_jsonrpc_ws, [endpoints.jsonrpc_ws, req.token, endpoints.jsonrpc_http]),
+            ("jsonrpc_http", check_jsonrpc_http, [endpoints.jsonrpc_http, http_token]),
+            ("jsonrpc_ws", check_jsonrpc_ws, [endpoints.jsonrpc_ws, http_token, endpoints.jsonrpc_http]),
         ]
+        if ys_token:
+            checks.append(("yellowstone_grpc", check_yellowstone, [endpoints.yellowstone_grpc, ys_token, endpoints.jsonrpc_http, http_token]))
+        if ss_token:
+            checks.append(("shredstream_grpc", check_shredstream, [endpoints.shredstream_grpc, ss_token, endpoints.jsonrpc_http, http_token]))
 
         # Emit all "running" statuses first
         for name, _, args in checks:
