@@ -1,0 +1,25 @@
+FROM python:3.13-slim-bookworm
+
+COPY --from=ghcr.io/astral-sh/uv:0.6.16 /uv /uvx /bin/
+
+WORKDIR /app
+
+# Install dependencies first (cache layer)
+ADD pyproject.toml uv.lock /app/
+RUN uv sync --locked --compile-bytecode --no-install-project --no-editable --no-cache
+
+# Copy proto files and compilation script
+ADD proto/ /app/proto/
+ADD scripts/ /app/scripts/
+RUN chmod +x /app/scripts/compile_protos.sh
+
+# Compile protos at build time
+# The script uses `python -m grpc_tools.protoc` which needs venv access
+ENV PATH="/app/.venv/bin:$PATH"
+RUN bash /app/scripts/compile_protos.sh
+
+# Copy application code
+ADD app/ /app/app/
+
+EXPOSE 8000
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

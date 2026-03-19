@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+app/proto_compiled/*.py
+!app/proto_compiled/__init__.py
+.claude/settings.local.json

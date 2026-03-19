@@ -1,0 +1,13 @@
+[project]
+name = "rpcfast-check-saas-endpoints"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "grpcio>=1.70.0",
+    "grpcio-tools>=1.70.0",
+    "httpx>=0.28.0",
+    "websockets>=14.0",
+    "sse-starlette>=2.0.0",
+]
