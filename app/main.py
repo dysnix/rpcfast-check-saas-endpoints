@@ -12,7 +12,7 @@ from sse_starlette.sse import EventSourceResponse
 
 # Only allow alphanumeric and hyphens in client_id to prevent SSRF
 CLIENT_ID_PATTERN = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
-VALID_ENDPOINT_TYPES = {"saas", "dedicated"}
+VALID_ENDPOINT_TYPES = {"saas", "saas-devnet", "dedicated"}
 
 from app.checks.jsonrpc_http import check_jsonrpc_http
 from app.checks.jsonrpc_ws import check_jsonrpc_ws
@@ -72,9 +72,9 @@ async def run_checks(req: CheckRequest):
             ("jsonrpc_http", check_jsonrpc_http, [endpoints.jsonrpc_http, http_token]),
             ("jsonrpc_ws", check_jsonrpc_ws, [endpoints.jsonrpc_ws, http_token, endpoints.jsonrpc_http]),
         ]
-        if ys_token:
+        if ys_token and endpoints.yellowstone_grpc:
             checks.append(("yellowstone_grpc", check_yellowstone, [endpoints.yellowstone_grpc, ys_token, endpoints.jsonrpc_http, http_token]))
-        if ss_token:
+        if ss_token and endpoints.shredstream_grpc:
             checks.append(("shredstream_grpc", check_shredstream, [endpoints.shredstream_grpc, ss_token, endpoints.jsonrpc_http, http_token]))
 
         # Emit all "running" statuses first

@@ -70,18 +70,17 @@
     <label>API Endpoint</label>
     <div class="radio-group">
       <label><input type="radio" name="endpoint-type" value="saas" checked onchange="toggleEndpointFields()"> SaaS</label>
+      <label><input type="radio" name="endpoint-type" value="saas-devnet" onchange="toggleEndpointFields()"> SaaS Devnet</label>
       <label><input type="radio" name="endpoint-type" value="dedicated" onchange="toggleEndpointFields()"> Dedicated</label>
     </div>
     <input type="text" id="client-id-input" placeholder="e.g. userid" autocomplete="off">
-    <div id="saas-tokens" style="margin-top: 0.5rem;">
-      <div class="form-group">
-        <label for="yellowstone-token">Yellowstone gRPC token (optional)</label>
-        <input type="text" id="yellowstone-token" placeholder="Leave empty to skip Yellowstone check" autocomplete="off">
-      </div>
-      <div class="form-group">
-        <label for="shredstream-token">Shredstream gRPC token (optional)</label>
-        <input type="text" id="shredstream-token" placeholder="Leave empty to skip Shredstream check" autocomplete="off">
-      </div>
+    <div id="yellowstone-token-group" class="form-group" style="margin-top: 0.5rem;">
+      <label for="yellowstone-token">Yellowstone gRPC token (optional)</label>
+      <input type="text" id="yellowstone-token" placeholder="Leave empty to skip Yellowstone check" autocomplete="off">
+    </div>
+    <div id="shredstream-token-group" class="form-group">
+      <label for="shredstream-token">Shredstream gRPC token (optional)</label>
+      <input type="text" id="shredstream-token" placeholder="Leave empty to skip Shredstream check" autocomplete="off">
     </div>
   </div>
 
@@ -108,9 +107,11 @@ function escapeHtml(str) {
 }
 
 function toggleEndpointFields() {
-  const dedicated = document.querySelector('input[name="endpoint-type"][value="dedicated"]').checked;
-  document.getElementById('client-id-input').style.display = dedicated ? 'block' : 'none';
-  document.getElementById('saas-tokens').style.display = dedicated ? 'none' : 'block';
+  const type = document.querySelector('input[name="endpoint-type"]:checked').value;
+  const isSaas = type === 'saas' || type === 'saas-devnet';
+  document.getElementById('client-id-input').style.display = type === 'dedicated' ? 'block' : 'none';
+  document.getElementById('yellowstone-token-group').style.display = isSaas ? 'block' : 'none';
+  document.getElementById('shredstream-token-group').style.display = isSaas ? 'block' : 'none';
 }
 
 function ageGrade(seconds) {

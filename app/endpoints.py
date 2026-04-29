@@ -17,6 +17,13 @@ def resolve_endpoints(endpoint_type: str, client_id: str | None = None) -> Endpo
             yellowstone_grpc="solana-yellowstone-grpc.rpcfast.com:443",
             shredstream_grpc="solana-shredstream-grpc.rpcfast.com:443",
         )
+    if endpoint_type == "saas-devnet":
+        return EndpointSet(
+            jsonrpc_http="https://sol-devnet-rpc.rpcfast.com",
+            jsonrpc_ws="wss://sol-devnet-rpc.rpcfast.com/ws",
+            yellowstone_grpc="sol-devnet-yellowstone-grpc.rpcfast.com:443",
+            shredstream_grpc="",
+        )
     # dedicated — requires client_id
     return EndpointSet(
         jsonrpc_http=f"https://sol-rpc-{client_id}.rpcfast.net",
