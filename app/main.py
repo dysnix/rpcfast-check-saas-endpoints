@@ -58,14 +58,16 @@ async def run_checks(req: CheckRequest):
 
     # Resolve per-service tokens:
     # Dedicated: single http_token for all services
-    # SaaS: http_token for HTTP+WS, separate optional tokens for gRPC
+    # SaaS / SaaS Devnet: http_token used for all services by default; optional
+    # per-service tokens override it (kept for backward compatibility with the
+    # pre-unified-key setup)
     http_token = req.http_token
     if req.endpoint_type == "dedicated":
         ys_token = req.http_token
         ss_token = req.http_token
     else:
-        ys_token = req.yellowstone_token
-        ss_token = req.shredstream_token
+        ys_token = req.yellowstone_token or req.http_token
+        ss_token = req.shredstream_token or req.http_token
 
     async def event_generator():
         checks = [
