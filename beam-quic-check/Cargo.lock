@@ -81,6 +81,7 @@ name = "beam-quic-check"
 version = "0.1.0"
 dependencies = [
  "beam-quic-client",
+ "rustls",
  "tokio",
 ]
 

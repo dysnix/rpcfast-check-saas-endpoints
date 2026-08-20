@@ -47,6 +47,11 @@
   .check-details td { padding: 0.15rem 0; }
   .check-details td:first-child { color: #8b949e; width: 45%; }
   .check-details td:last-child { color: #e1e4e8; text-align: right; }
+  .check-section { padding-top: 0.85rem; border-top: 1px solid #30363d; }
+  .check-section:first-child { padding-top: 0; border-top: 0; }
+  .check-section + .check-section { margin-top: 0.85rem; }
+  .check-section .check-header { margin-bottom: 0.4rem; }
+  .check-section .check-name { font-size: 0.85rem; color: #c9d1d9; }
   .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #d29922; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 0.3rem; vertical-align: middle; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .age-green { color: #2ea043; }
@@ -94,15 +99,13 @@ const CHECK_LABELS = {
   jsonrpc_http: 'JSON RPC HTTP',
   yellowstone_grpc: 'Yellowstone gRPC',
   shredstream_grpc: 'Shredstream gRPC',
-  aperture_txstream_grpc: 'Aperture TxStream gRPC',
-  aperture_simulation_grpc: 'Aperture TxStream Simulation',
+  aperture_txstream_grpc: 'Aperture TxStream',
   beam_http: 'Beam HTTP',
   beam_quic: 'Beam QUIC',
   jsonrpc_ws: 'JSON RPC WebSocket',
 };
 
-// Store endpoint info from status events so results can reference it
-const cardEndpoints = {};
+const checkStates = {};
 
 function escapeHtml(str) {
   const div = document.createElement('div');
@@ -178,20 +181,11 @@ function formatDetails(data) {
   return '<table>' + rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('') + '</table>';
 }
 
-function setCard(name, status, data) {
-  let card = document.getElementById(`card-${name}`);
-  if (!card) {
-    card = document.createElement('div');
-    card.id = `card-${name}`;
-    card.className = 'check-card';
-    document.getElementById('results').appendChild(card);
-  }
-
+function statusDisplay(status, data) {
   const grade = data ? getCardGrade(data) : null;
   const cardClass = status === 'running' ? 'running'
     : status === 'error' ? 'error'
     : grade ? `grade-${grade}` : status;
-  card.className = `check-card ${cardClass}`;
 
   let badgeContent, badgeClass;
   if (status === 'running') {
@@ -208,14 +202,141 @@ function setCard(name, status, data) {
     badgeClass = status;
   }
 
+  return { cardClass, badgeContent, badgeClass };
+}
+
+function ensureCard(name) {
+  let card = document.getElementById(`card-${name}`);
+  if (!card) {
+    card = document.createElement('div');
+    card.id = `card-${name}`;
+    card.className = 'check-card';
+    document.getElementById('results').appendChild(card);
+  }
+  return card;
+}
+
+function renderStandardCard(name, state) {
+  const card = ensureCard(name);
+  const display = statusDisplay(state.status, state.data);
+  card.className = `check-card ${display.cardClass}`;
+
   card.innerHTML = `
     <div class="check-header">
       <span class="check-name">${CHECK_LABELS[name] || name}</span>
-      <span class="badge ${badgeClass}">${badgeContent}</span>
+      <span class="badge ${display.badgeClass}">${display.badgeContent}</span>
     </div>
-    ${data?.endpoint ? `<div class="check-endpoint">${escapeHtml(data.endpoint)}</div>` : ''}
-    <div class="check-details">${data ? formatDetails(data) : ''}</div>
+    ${state.data?.endpoint ? `<div class="check-endpoint">${escapeHtml(state.data.endpoint)}</div>` : ''}
+    <div class="check-details">${state.data ? formatDetails(state.data) : ''}</div>
   `;
+}
+
+function aggregateStatus(states) {
+  const statuses = states.filter(Boolean).map(state => state.status);
+  if (statuses.includes('error')) return 'error';
+  if (statuses.includes('warning')) return 'warning';
+  if (statuses.includes('running')) return 'running';
+  return statuses.length ? 'ok' : 'running';
+}
+
+function simulationSummaryData(simulation) {
+  if (!simulation) return {};
+  if (simulation.status === 'running') {
+    return {
+      simulations_seen: 'Checking…',
+      simulation_service_errors: 'Checking…',
+    };
+  }
+  if (simulation.data?.reason === 'simulation_not_in_plan') {
+    return {
+      simulations_seen: 'Not included in plan',
+      simulation_service_errors: 0,
+    };
+  }
+  if (simulation.status === 'error') {
+    return {
+      simulations_seen: 'Check failed',
+      simulation_service_errors: 'Unavailable',
+    };
+  }
+  return {
+    simulations_seen: simulation.data?.simulations_seen ?? 0,
+    simulation_service_errors: simulation.data?.simulation_service_errors ?? 0,
+  };
+}
+
+function renderApertureCard() {
+  const base = checkStates.aperture_txstream_grpc;
+  const simulation = checkStates.aperture_simulation_grpc;
+  if (!base && !simulation) return;
+
+  const baseState = base || { status: 'running', data: {} };
+  const aggregate = aggregateStatus([baseState, simulation]);
+  const aggregateDisplay = statusDisplay(aggregate, {});
+  const details = {
+    ...baseState.data,
+    ...simulationSummaryData(simulation),
+  };
+
+  const card = ensureCard('aperture_txstream_grpc');
+  card.className = `check-card ${aggregateDisplay.cardClass}`;
+
+  card.innerHTML = `
+    <div class="check-header">
+      <span class="check-name">${CHECK_LABELS.aperture_txstream_grpc}</span>
+      <span class="badge ${aggregateDisplay.badgeClass}">${aggregateDisplay.badgeContent}</span>
+    </div>
+    ${baseState.data?.endpoint ? `<div class="check-endpoint">${escapeHtml(baseState.data.endpoint)}</div>` : ''}
+    <div class="check-details">${formatDetails(details)}</div>
+  `;
+}
+
+function renderBeamCard() {
+  const http = checkStates.beam_http;
+  const quic = checkStates.beam_quic;
+  if (!http && !quic) return;
+
+  const aggregate = aggregateStatus([http, quic]);
+  const aggregateDisplay = statusDisplay(aggregate, {});
+  const card = ensureCard('beam');
+  card.className = `check-card ${aggregateDisplay.cardClass}`;
+
+  const sections = [
+    ['beam_http', http],
+    ['beam_quic', quic],
+  ].filter(([, state]) => state).map(([name, state]) => {
+    const display = statusDisplay(state.status, state.data);
+    return `
+      <div class="check-section">
+        <div class="check-header">
+          <span class="check-name">${CHECK_LABELS[name]}</span>
+          <span class="badge ${display.badgeClass}">${display.badgeContent}</span>
+        </div>
+        ${state.data?.endpoint ? `<div class="check-endpoint">${escapeHtml(state.data.endpoint)}</div>` : ''}
+        <div class="check-details">${state.data ? formatDetails(state.data) : ''}</div>
+      </div>
+    `;
+  }).join('');
+
+  card.innerHTML = `
+    <div class="check-header">
+      <span class="check-name">Beam</span>
+      <span class="badge ${aggregateDisplay.badgeClass}">${aggregateDisplay.badgeContent}</span>
+    </div>
+    ${sections}
+  `;
+}
+
+function setCard(name, status, data) {
+  const previousData = checkStates[name]?.data || {};
+  checkStates[name] = { status, data: { ...previousData, ...data } };
+  if (name === 'aperture_txstream_grpc' || name === 'aperture_simulation_grpc') {
+    renderApertureCard();
+  } else if (name === 'beam_http' || name === 'beam_quic') {
+    renderBeamCard();
+  } else {
+    renderStandardCard(name, checkStates[name]);
+  }
 }
 
 async function runChecks() {
@@ -242,6 +363,7 @@ async function runChecks() {
   btn.disabled = true;
   btn.textContent = 'Checking...';
   document.getElementById('results').innerHTML = '';
+  for (const name of Object.keys(checkStates)) delete checkStates[name];
 
   try {
     const body = { http_token: httpToken, endpoint_type: endpointType };

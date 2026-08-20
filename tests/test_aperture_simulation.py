@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 import grpc
 
@@ -24,6 +25,12 @@ class FakeRpcError:
 
 
 class ApertureSimulationTests(unittest.TestCase):
+    def test_txstream_result_does_not_expose_grpc_message_count(self):
+        source = (
+            Path(__file__).parents[1] / "app/checks/aperture_txstream.py"
+        ).read_text()
+        self.assertNotIn('"grpc_messages"', source)
+
     def test_account_include_is_a_solana_pubkey(self):
         import base58
 
@@ -43,6 +50,14 @@ class ApertureSimulationTests(unittest.TestCase):
             1,
             1,
             {"SIMULATION_STATUS_FAILED": 1},
+        )
+        self.assertEqual((status, reason, message, service_errors), ("ok", None, None, 0))
+
+    def test_bank_not_available_is_not_a_simulation_service_error(self):
+        status, reason, message, service_errors = classify_simulation_health(
+            1,
+            1,
+            {"SIMULATION_STATUS_BANK_NOT_AVAILABLE": 1},
         )
         self.assertEqual((status, reason, message, service_errors), ("ok", None, None, 0))
 

@@ -4,6 +4,10 @@ use beam_quic_client::{BeamQuicClient, BeamQuicClientConfig};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .map_err(|_| io::Error::other("failed to install the AWS-LC Rustls crypto provider"))?;
+
     let endpoint = env::args().nth(1).ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::InvalidInput,
