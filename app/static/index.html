@@ -94,6 +94,10 @@ const CHECK_LABELS = {
   jsonrpc_http: 'JSON RPC HTTP',
   yellowstone_grpc: 'Yellowstone gRPC',
   shredstream_grpc: 'Shredstream gRPC',
+  aperture_txstream_grpc: 'Aperture TxStream gRPC',
+  aperture_simulation_grpc: 'Aperture TxStream Simulation',
+  beam_http: 'Beam HTTP',
+  beam_quic: 'Beam QUIC',
   jsonrpc_ws: 'JSON RPC WebSocket',
 };
 
@@ -136,7 +140,7 @@ function gradeLabel(grade) {
 }
 
 function getCardGrade(data) {
-  if (data.status === 'error') return null;
+  if (data.status !== 'ok') return null;
   return ageGrade(data.age_seconds);
 }
 
@@ -151,6 +155,7 @@ function formatDetails(data) {
   if (data.grpc_messages != null) rows.push(['gRPC Messages', data.grpc_messages.toLocaleString()]);
   if (data.solana_entries_decoded != null) rows.push(['Entries Decoded', data.solana_entries_decoded.toLocaleString()]);
   if (data.transactions_seen != null) rows.push(['Transactions', data.transactions_seen.toLocaleString()]);
+  if (data.signatures_seen != null) rows.push(['Signatures', data.signatures_seen.toLocaleString()]);
   if (data.slots_seen != null) rows.push(['Slots Seen', data.slots_seen.toLocaleString()]);
   if (data.slot_ahead != null) rows.push(['Slots Ahead of Confirmed', `<span class="${data.slot_ahead >= 0 ? 'age-green' : 'age-red'}">${data.slot_ahead > 0 ? '+' : ''}${data.slot_ahead}</span>`]);
   if (data.last_slot != null) rows.push(['Last Slot', `<a href="https://solscan.io/block/${data.last_slot}" target="_blank" rel="noopener">${data.last_slot.toLocaleString()}</a>`]);
@@ -159,6 +164,14 @@ function formatDetails(data) {
   if (data.blocks_received != null) rows.push(['Blocks Received', data.blocks_received]);
   if (data.latest_slot != null) rows.push(['Latest Slot', `<a href="https://solscan.io/block/${data.latest_slot}" target="_blank" rel="noopener">${data.latest_slot.toLocaleString()}</a>`]);
   if (data.elapsed_seconds != null) rows.push(['Elapsed', `${data.elapsed_seconds}s`]);
+  if (data.elapsed_ms != null) rows.push(['Latency', `${data.elapsed_ms} ms`]);
+  if (data.handshake_ms != null) rows.push(['Handshake', `${data.handshake_ms} ms`]);
+  if (data.transactions_per_second != null) rows.push(['Transactions/s', data.transactions_per_second.toLocaleString()]);
+  if (data.simulations_seen != null) rows.push(['Simulations', data.simulations_seen.toLocaleString()]);
+  if (data.simulation_service_errors != null) rows.push(['Simulation Service Errors', data.simulation_service_errors.toLocaleString()]);
+  if (data.simulation_statuses && Object.keys(data.simulation_statuses).length) rows.push(['Simulation Statuses', escapeHtml(JSON.stringify(data.simulation_statuses))]);
+  if (data.grpc_code) rows.push(['gRPC Code', escapeHtml(data.grpc_code)]);
+  if (data.reason) rows.push(['Reason', escapeHtml(data.reason)]);
   if (data.error) rows.push(['Error', `<span class="age-red">${escapeHtml(data.error)}</span>`]);
   if (data.message) rows.push(['Message', escapeHtml(data.message)]);
   if (!rows.length) return '';

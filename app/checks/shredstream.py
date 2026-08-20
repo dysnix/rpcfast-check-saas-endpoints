@@ -5,6 +5,7 @@ from io import BytesIO
 import grpc
 import httpx
 
+from app.checks.grpc_stream import consume_for_duration
 from app.proto_compiled import shredstream_pb2, shredstream_pb2_grpc
 
 
@@ -185,10 +186,13 @@ async def check_shredstream(endpoint: str, token: str, http_url: str, http_token
         slots_seen = set()
         last_slot = 0
         decode_errors = 0
-        start_time = time.monotonic()
         duration = 5.0  # seconds
 
-        async for entry in stub.SubscribeEntries(request, metadata=metadata):
+        call = stub.SubscribeEntries(request, metadata=metadata)
+
+        def consume_entry(entry):
+            nonlocal total_bytes, entry_count, total_transactions
+            nonlocal total_solana_entries, last_slot, decode_errors
             total_bytes += len(entry.entries)
             entry_count += 1
             last_slot = entry.slot
@@ -202,10 +206,7 @@ async def check_shredstream(endpoint: str, token: str, http_url: str, http_token
             except Exception:
                 decode_errors += 1
 
-            if time.monotonic() - start_time >= duration:
-                break
-
-        elapsed = time.monotonic() - start_time
+        elapsed = await consume_for_duration(call, duration, consume_entry)
         speed_mbps = (total_bytes * 8) / (elapsed * 1_000_000) if elapsed > 0 else 0
 
         # Estimate shredstream freshness:

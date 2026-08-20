@@ -4,3 +4,4 @@ __pycache__/
 app/proto_compiled/*.py
 !app/proto_compiled/__init__.py
 .claude/settings.local.json
+beam-quic-check/target/

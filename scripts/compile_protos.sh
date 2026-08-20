@@ -14,7 +14,8 @@ python -m grpc_tools.protoc \
   "$PROTO_DIR/solana-storage.proto" \
   "$PROTO_DIR/geyser.proto" \
   "$PROTO_DIR/shared.proto" \
-  "$PROTO_DIR/shredstream.proto"
+  "$PROTO_DIR/shredstream.proto" \
+  "$PROTO_DIR/txstream.proto"
 
 # Fix imports in generated files to use relative imports within the package
 cd "$OUT_DIR"
@@ -23,6 +24,7 @@ sed -i.bak 's/^from solana_storage_pb2/from .solana_storage_pb2/' geyser_pb2.py
 sed -i.bak 's/^import geyser_pb2/from . import geyser_pb2/' geyser_pb2_grpc.py
 sed -i.bak 's/^import shared_pb2/from . import shared_pb2/' shredstream_pb2.py
 sed -i.bak 's/^import shredstream_pb2/from . import shredstream_pb2/' shredstream_pb2_grpc.py
+sed -i.bak 's/^import txstream_pb2/from . import txstream_pb2/' txstream_pb2_grpc.py
 rm -f *.bak
 
 echo "Proto compilation complete: $OUT_DIR"

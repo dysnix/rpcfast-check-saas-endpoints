@@ -1,0 +1,89 @@
+syntax = "proto3";
+
+package aperture;
+
+service Aperture {
+  rpc SubscribeTransactions(SubscribeTransactionsRequest) returns (stream DecodedTransaction);
+  rpc SubscribeTransactionBatches(SubscribeTransactionsRequest) returns (stream DecodedTransactionBatch);
+}
+
+message SubscribeTransactionsRequest {
+  VoteFilter vote = 1;
+  bytes signature = 2;
+  repeated bytes account_include = 3;
+  repeated bytes account_exclude = 4;
+  repeated bytes account_required = 5;
+  bool signatures_only = 6;
+  bool include_simulation = 7;
+}
+
+enum VoteFilter {
+  VOTE_FILTER_ALL = 0;
+  VOTE_FILTER_VOTE_ONLY = 1;
+  VOTE_FILTER_NON_VOTE_ONLY = 2;
+}
+
+message DecodedTransaction {
+  uint64 slot = 1;
+  uint64 index = 2;
+  bool is_vote = 3;
+  uint64 created_at_unix_nanos = 4;
+  repeated bytes signatures = 5;
+  TransactionVersion version = 6;
+  MessageHeader header = 7;
+  repeated bytes static_account_keys = 8;
+  repeated bytes loaded_writable_addresses = 9;
+  repeated bytes loaded_readonly_addresses = 10;
+  bytes recent_blockhash = 11;
+  repeated CompiledInstruction instructions = 12;
+  TransactionSimulation simulation = 13;
+  optional string alt_resolution = 14;
+}
+
+message DecodedTransactionBatch {
+  repeated DecodedTransaction transactions = 1;
+}
+
+enum TransactionVersion {
+  TRANSACTION_VERSION_LEGACY = 0;
+  TRANSACTION_VERSION_V0 = 1;
+}
+
+message MessageHeader {
+  uint32 num_required_signatures = 1;
+  uint32 num_readonly_signed_accounts = 2;
+  uint32 num_readonly_unsigned_accounts = 3;
+}
+
+message CompiledInstruction {
+  uint32 program_id_index = 1;
+  repeated uint32 accounts = 2 [packed = true];
+  bytes data = 3;
+}
+
+message TransactionSimulation {
+  optional uint64 bank_slot = 1;
+  SimulationStatus status = 2;
+  optional string error = 3;
+  repeated string logs = 4;
+  optional uint64 compute_units_consumed = 5;
+  optional uint64 fee = 6;
+  TransactionReturnData return_data = 7;
+  uint64 simulated_at_unix_nanos = 8;
+  uint64 processing_time_nanos = 9;
+}
+
+enum SimulationStatus {
+  SIMULATION_STATUS_UNSPECIFIED = 0;
+  SIMULATION_STATUS_SUCCEEDED = 1;
+  SIMULATION_STATUS_FAILED = 2;
+  SIMULATION_STATUS_INVALID_TRANSACTION = 3;
+  SIMULATION_STATUS_BANK_NOT_AVAILABLE = 4;
+  SIMULATION_STATUS_SERVER_OVERLOADED = 5;
+  SIMULATION_STATUS_INTERNAL_ERROR = 6;
+}
+
+message TransactionReturnData {
+  bytes program_id = 1;
+  bytes data = 2;
+}

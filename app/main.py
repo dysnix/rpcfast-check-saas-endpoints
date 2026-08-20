@@ -10,15 +10,21 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
-# Only allow alphanumeric and hyphens in client_id to prevent SSRF
-CLIENT_ID_PATTERN = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
-VALID_ENDPOINT_TYPES = {"saas", "saas-devnet", "dedicated"}
-
+from app.checks.aperture_txstream import (
+    check_aperture_simulation,
+    check_aperture_txstream,
+)
+from app.checks.beam_http import check_beam_http
+from app.checks.beam_quic import check_beam_quic
 from app.checks.jsonrpc_http import check_jsonrpc_http
 from app.checks.jsonrpc_ws import check_jsonrpc_ws
 from app.checks.shredstream import check_shredstream
 from app.checks.yellowstone import check_yellowstone
 from app.endpoints import resolve_endpoints
+
+# Only allow alphanumeric and hyphens in client_id to prevent SSRF
+CLIENT_ID_PATTERN = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
+VALID_ENDPOINT_TYPES = {"saas", "saas-devnet", "dedicated"}
 
 
 def format_error(e: Exception) -> str:
@@ -78,6 +84,13 @@ async def run_checks(req: CheckRequest):
             checks.append(("yellowstone_grpc", check_yellowstone, [endpoints.yellowstone_grpc, ys_token, endpoints.jsonrpc_http, http_token]))
         if ss_token and endpoints.shredstream_grpc:
             checks.append(("shredstream_grpc", check_shredstream, [endpoints.shredstream_grpc, ss_token, endpoints.jsonrpc_http, http_token]))
+        if endpoints.aperture_txstream_grpc:
+            checks.append(("aperture_txstream_grpc", check_aperture_txstream, [endpoints.aperture_txstream_grpc, http_token]))
+            checks.append(("aperture_simulation_grpc", check_aperture_simulation, [endpoints.aperture_txstream_grpc, http_token]))
+        if endpoints.beam_http:
+            checks.append(("beam_http", check_beam_http, [endpoints.beam_http, http_token]))
+        if endpoints.beam_quic:
+            checks.append(("beam_quic", check_beam_quic, [endpoints.beam_quic, http_token]))
 
         # Emit all "running" statuses first
         for name, _, args in checks:
@@ -91,18 +104,23 @@ async def run_checks(req: CheckRequest):
             try:
                 result = await asyncio.wait_for(check_fn(*args), timeout=30.0)
                 return name, result
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 return name, {"status": "error", "error": "Timeout (30s)"}
             except Exception as e:
                 return name, {"status": "error", "error": format_error(e)}
 
-        tasks = [run_check(name, fn, args) for name, fn, args in checks]
-        for coro in asyncio.as_completed(tasks):
-            name, result = await coro
-            yield {
-                "event": "result",
-                "data": json.dumps({"check": name, **result}),
-            }
+        tasks = [asyncio.create_task(run_check(name, fn, args)) for name, fn, args in checks]
+        try:
+            for task in asyncio.as_completed(tasks):
+                name, result = await task
+                yield {
+                    "event": "result",
+                    "data": json.dumps({"check": name, **result}),
+                }
+        finally:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
 
         yield {"event": "done", "data": "{}"}
 

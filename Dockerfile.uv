@@ -1,6 +1,14 @@
+FROM rust:1.92-trixie AS beam-quic-check-builder
+
+WORKDIR /build
+ADD beam-quic-check/Cargo.toml beam-quic-check/Cargo.lock /build/
+ADD beam-quic-check/src/ /build/src/
+RUN cargo build --locked --release
+
 FROM python:3.13-slim-trixie
 
 COPY --from=ghcr.io/astral-sh/uv:0.10 /uv /uvx /bin/
+COPY --from=beam-quic-check-builder /build/target/release/beam-quic-check /usr/local/bin/beam-quic-check
 
 WORKDIR /app
 
