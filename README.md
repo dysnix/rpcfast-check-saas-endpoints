@@ -17,6 +17,10 @@ Web app to check RPCFast Solana RPC endpoints on demand. Runs the available chec
 
 Aperture TxStream and Beam are currently checked for the mainnet SaaS endpoint type. They are skipped for SaaS Devnet and Dedicated because those endpoint variants are not currently exposed by this checker configuration.
 
+The WebSocket check declares `maxSupportedTransactionVersion: 1` and requests
+block metadata with `transactionDetails: none`. Notification errors are failures,
+not successful blocks; the subscription is closed after the check.
+
 ## Build & Run
 
 ```bash

@@ -11,7 +11,12 @@ async def _get_block_time_via_http(http_url: str, token: str, slot: int) -> int:
         resp = await client.post(
             http_url,
             headers={"x-token": token, "Content-Type": "application/json"},
-            json={"jsonrpc": "2.0", "id": 1, "method": "getBlockTime", "params": [slot]},
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "getBlockTime",
+                "params": [slot],
+            },
         )
         resp.raise_for_status()
         data = resp.json()
@@ -30,19 +35,30 @@ async def check_jsonrpc_ws(endpoint: str, token: str, http_url: str) -> dict:
             raise RuntimeError("WebSocket HTTP 401 Unauthorized") from None
         if e.status_code == 403:
             raise RuntimeError("WebSocket HTTP 403 Forbidden") from None
-        raise RuntimeError(f"WebSocket connection failed: HTTP {e.status_code}") from None
+        raise RuntimeError(
+            f"WebSocket connection failed: HTTP {e.status_code}"
+        ) from None
 
     async with ws:
-        # Use "allWithVotes" filter — "all" is not supported on SaaS endpoints
-        subscribe_msg = json.dumps({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "blockSubscribe",
-            "params": [
-                {"mentionsAccountOrProgram": "Vote111111111111111111111111111111111111111"},
-                {"commitment": "confirmed", "transactionDetails": "none", "rewards": False},
-            ],
-        })
+        # Broad "all" filters are not supported on SaaS endpoints.
+        subscribe_msg = json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "blockSubscribe",
+                "params": [
+                    {
+                        "mentionsAccountOrProgram": "Vote111111111111111111111111111111111111111"
+                    },
+                    {
+                        "commitment": "confirmed",
+                        "transactionDetails": "none",
+                        "rewards": False,
+                        "maxSupportedTransactionVersion": 1,
+                    },
+                ],
+            }
+        )
         await ws.send(subscribe_msg)
 
         confirm = json.loads(await ws.recv())
@@ -62,25 +78,36 @@ async def check_jsonrpc_ws(endpoint: str, token: str, http_url: str) -> dict:
                 msg = json.loads(raw)
                 if "params" in msg and "result" in msg["params"]:
                     value = msg["params"]["result"]["value"]
-                    blocks.append({
-                        "slot": value.get("slot"),
-                        "block_height": value.get("block", {}).get("blockHeight"),
-                    })
+                    if value.get("err") is not None:
+                        raise RuntimeError(
+                            f"blockSubscribe notification: {value['err']}"
+                        )
+                    block = value.get("block")
+                    if not isinstance(block, dict):
+                        raise RuntimeError("blockSubscribe notification: missing block")
+                    blocks.append(
+                        {
+                            "slot": value.get("slot"),
+                            "block_height": block.get("blockHeight"),
+                        }
+                    )
         except asyncio.TimeoutError:
             pass
-
-        # Unsubscribe (best effort)
-        if subscription_id is not None:
-            try:
-                unsub = json.dumps({
-                    "jsonrpc": "2.0",
-                    "id": 2,
-                    "method": "blockUnsubscribe",
-                    "params": [subscription_id],
-                })
-                await ws.send(unsub)
-            except Exception:
-                pass
+        finally:
+            # Unsubscribe even when the server reports a notification error.
+            if subscription_id is not None:
+                try:
+                    unsub = json.dumps(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 2,
+                            "method": "blockUnsubscribe",
+                            "params": [subscription_id],
+                        }
+                    )
+                    await ws.send(unsub)
+                except Exception:
+                    pass
 
     if not blocks:
         return {
