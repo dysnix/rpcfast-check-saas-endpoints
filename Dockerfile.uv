@@ -1,7 +1,7 @@
-FROM rust:1.92-trixie AS beam-quic-check-builder
+FROM rust:1.92.0-trixie AS beam-quic-check-builder
 
 WORKDIR /build
-ADD beam-quic-check/Cargo.toml beam-quic-check/Cargo.lock /build/
+ADD beam-quic-check/Cargo.toml beam-quic-check/Cargo.lock beam-quic-check/rust-toolchain.toml /build/
 ADD beam-quic-check/src/ /build/src/
 RUN cargo build --locked --release
 
