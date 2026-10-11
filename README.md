@@ -17,6 +17,12 @@ Web app to check RPCFast Solana RPC endpoints on demand. Runs the available chec
 
 Aperture TxStream and Beam are currently checked for the mainnet SaaS endpoint type. They are skipped for SaaS Devnet and Dedicated because those endpoint variants are not currently exposed by this checker configuration.
 
+Simulation service errors trigger a warning only when they exceed 50% of all
+simulation results received during the check. Exactly 50% remains healthy, and
+the error count is still displayed. If all simulations have service errors, the
+check reports an error. Missing simulation results, no transactions, and plan
+denial retain their existing statuses.
+
 The WebSocket check declares `maxSupportedTransactionVersion: 1` and requests
 block metadata with `transactionDetails: none`. Notification errors are failures,
 not successful blocks; the subscription is closed after the check.

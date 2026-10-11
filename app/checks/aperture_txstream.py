@@ -49,14 +49,14 @@ def classify_simulation_health(
             "All simulation results reported service-level failures",
             service_errors,
         )
-    if service_errors:
+    if service_errors * 2 > simulations_seen:
         return (
             "warning",
             "simulation_partially_unhealthy",
-            "Some simulation results reported service-level failures",
+            "More than 50% of simulation results reported service-level failures",
             service_errors,
         )
-    return "ok", None, None, 0
+    return "ok", None, None, service_errors
 
 
 def is_simulation_plan_denial(error: grpc.aio.AioRpcError) -> bool:
@@ -137,12 +137,10 @@ async def _check_aperture_txstream(
         if include_simulation:
             result["simulations_seen"] = simulations_seen
             result["simulation_statuses"] = simulation_statuses
-            health_status, reason, message, service_errors = (
-                classify_simulation_health(
-                    transaction_count,
-                    simulations_seen,
-                    simulation_statuses,
-                )
+            health_status, reason, message, service_errors = classify_simulation_health(
+                transaction_count,
+                simulations_seen,
+                simulation_statuses,
             )
             result["simulation_service_errors"] = service_errors
             result["status"] = health_status

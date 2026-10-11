@@ -40,7 +40,9 @@ class ApertureSimulationTests(unittest.TestCase):
         base_request = build_subscribe_request(False)
         simulation_request = build_subscribe_request(True)
 
-        self.assertEqual(base_request.account_include, simulation_request.account_include)
+        self.assertEqual(
+            base_request.account_include, simulation_request.account_include
+        )
         self.assertTrue(base_request.signatures_only)
         self.assertFalse(base_request.include_simulation)
         self.assertTrue(simulation_request.include_simulation)
@@ -51,7 +53,9 @@ class ApertureSimulationTests(unittest.TestCase):
             1,
             {"SIMULATION_STATUS_FAILED": 1},
         )
-        self.assertEqual((status, reason, message, service_errors), ("ok", None, None, 0))
+        self.assertEqual(
+            (status, reason, message, service_errors), ("ok", None, None, 0)
+        )
 
     def test_bank_not_available_is_not_a_simulation_service_error(self):
         status, reason, message, service_errors = classify_simulation_health(
@@ -59,7 +63,9 @@ class ApertureSimulationTests(unittest.TestCase):
             1,
             {"SIMULATION_STATUS_BANK_NOT_AVAILABLE": 1},
         )
-        self.assertEqual((status, reason, message, service_errors), ("ok", None, None, 0))
+        self.assertEqual(
+            (status, reason, message, service_errors), ("ok", None, None, 0)
+        )
 
     def test_all_service_failures_report_simulation_as_unhealthy(self):
         status, reason, _, service_errors = classify_simulation_health(
@@ -71,18 +77,44 @@ class ApertureSimulationTests(unittest.TestCase):
         self.assertEqual(reason, "simulation_unhealthy")
         self.assertEqual(service_errors, 2)
 
-    def test_mixed_service_results_report_partial_failure(self):
+    def test_service_error_rate_up_to_half_is_healthy(self):
+        for service_errors in (0, 1, 49, 50):
+            with self.subTest(service_errors=service_errors):
+                result = classify_simulation_health(
+                    100,
+                    100,
+                    {
+                        "SIMULATION_STATUS_SUCCEEDED": 100 - service_errors,
+                        "SIMULATION_STATUS_SERVER_OVERLOADED": service_errors,
+                    },
+                )
+                self.assertEqual(result, ("ok", None, None, service_errors))
+
+    def test_service_error_rate_above_half_reports_partial_failure(self):
         status, reason, _, service_errors = classify_simulation_health(
-            2,
-            2,
+            100,
+            100,
             {
-                "SIMULATION_STATUS_SUCCEEDED": 1,
-                "SIMULATION_STATUS_SERVER_OVERLOADED": 1,
+                "SIMULATION_STATUS_SUCCEEDED": 49,
+                "SIMULATION_STATUS_SERVER_OVERLOADED": 51,
             },
         )
         self.assertEqual(status, "warning")
         self.assertEqual(reason, "simulation_partially_unhealthy")
-        self.assertEqual(service_errors, 1)
+        self.assertEqual(service_errors, 51)
+
+    def test_service_error_rate_includes_all_service_failure_statuses(self):
+        result = classify_simulation_health(
+            3,
+            3,
+            {
+                "SIMULATION_STATUS_FAILED": 1,
+                "SIMULATION_STATUS_INTERNAL_ERROR": 1,
+                "SIMULATION_STATUS_SERVER_OVERLOADED": 1,
+            },
+        )
+        self.assertEqual(result[0], "warning")
+        self.assertEqual(result[3], 2)
 
     def test_exact_plan_denial_is_classified_as_auth_not_service_failure(self):
         error = FakeRpcError(grpc.StatusCode.PERMISSION_DENIED, SIMULATION_PLAN_DENIAL)
