@@ -5,6 +5,11 @@ import time
 import httpx
 import websockets
 
+# Broad "all" filters are not supported on SaaS endpoints, and Agave sends no
+# notification for a block without a matching transaction. The System Program
+# is in every block; the Vote program is in none since Alpenglow.
+BLOCK_FILTER_PROGRAM = "11111111111111111111111111111111"
+
 
 async def _get_block_time_via_http(http_url: str, token: str, slot: int) -> int:
     async with httpx.AsyncClient(timeout=10.0) as client:
@@ -40,16 +45,13 @@ async def check_jsonrpc_ws(endpoint: str, token: str, http_url: str) -> dict:
         ) from None
 
     async with ws:
-        # Broad "all" filters are not supported on SaaS endpoints.
         subscribe_msg = json.dumps(
             {
                 "jsonrpc": "2.0",
                 "id": 1,
                 "method": "blockSubscribe",
                 "params": [
-                    {
-                        "mentionsAccountOrProgram": "Vote111111111111111111111111111111111111111"
-                    },
+                    {"mentionsAccountOrProgram": BLOCK_FILTER_PROGRAM},
                     {
                         "commitment": "confirmed",
                         "transactionDetails": "none",
