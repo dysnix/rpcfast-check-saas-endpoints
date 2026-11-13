@@ -60,6 +60,10 @@ class WebSocketTests(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(
+            socket.sent[0]["params"][0],
+            {"mentionsAccountOrProgram": "11111111111111111111111111111111"},
+        )
+        self.assertEqual(
             socket.sent[0]["params"][1]["maxSupportedTransactionVersion"], 1
         )
         self.assertEqual(socket.sent[0]["params"][1]["transactionDetails"], "none")
